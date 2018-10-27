@@ -1,0 +1,155 @@
+#------------------------------------------------------------------------------
+# Kafka:
+#------------------------------------------------------------------------------
+
+Image: "docker-reg.devops.xiaohongshu.com/data/kafka"
+ImageTag: "2.11-0.11.0.2"
+ImagePullPolicy: "Always"
+resources: {}
+  # limits:
+  #   cpu: 200m
+  #   memory: 1536Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 1024Mi
+#Storage: "50Gi"
+## Environmental variables to set in kafka
+DataDirectory:
+  - /kafka1/data
+  - /kafka2/data
+  - /kafka3/data
+  - /kafka4/data
+  - /kafka5/data
+Env:
+  ## Kakfa java environment values
+  JAVA_HOME: "/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-3.b13.el7_5.x86_64/jre"
+  #KAFKA_JMX_OPTS="-Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.net.preferIPv4Stack=true -Djava.rmi.server.hostname=$HOSTNAME"
+  KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.net.preferIPv4Stack=true -Dcom.sun.management.jmxremote.port=9998 " 
+  #KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.net.preferIPv4Stack=true -Djava.rmi.server.hostname=dt-flink-kafka03"
+  #JMX_PORT: 9998
+  KAFKA_HEAP_OPTS: "-Xmx20G -Xms20G -XX:MetaspaceSize=96m -XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:G1HeapRegionSize=16M -XX:MinMetaspaceFreeRatio=50 -XX:MaxMetaspaceFreeRatio=80"
+  #####KAFKA server log dir
+  LOG_DIR: "/kafka/log"
+# kafka server.properties file
+Server:
+  Location: "/kafka_2.11-0.11.0.2/config/server.properties"
+  Properties: |
+    #id need set during pod running
+    broker.id=11
+    #host.name=dt-flink-kafka-11.node.qcloud-sh.consul
+    num.network.threads=16
+    num.io.threads=5
+    socket.send.buffer.bytes=102400
+    socket.receive.buffer.bytes=102400
+    socket.request.max.bytes=104857600
+    #log.dirs=/kafka1/data,/kafka2/data,/kafka3/data,/kafka4/data/,/kafka5/data
+    num.partitions=10
+    num.recovery.threads.per.data.dir=3
+    log.retention.hours=24
+    #zookeeper.connect=kafka-test-01:2181,kafka-test-02:2181,kafka-test-03:2181
+    delete.topic.enable=true
+    controlled.shutdown.enable=true
+    
+    #log文件保存的时间
+    log.retention.hours=24
+    #单个日志文件的大小
+    log.segment.bytes=1073741824
+    log.retention.hours=24
+    #log文件删除策略，有compact和delete两种
+    log.cleanup.policy=delete
+    #开启compact类型文件的删除
+    log.cleaner.enable=true
+    #compact类型文件保留时间，默认是 1 day
+    log.cleaner.delete.retention.ms = 86400000
+    # 默认 Replica
+    default.replication.factor = 3
+    num.replica.fetchers=5
+Log4J:
+  Location: "/kafka_2.11-0.11.0.2/config/log4j.properties"
+  Properties: |
+    # Unspecified loggers and loggers with additivity=true output to server.log and stdout
+    # Note that INFO only applies to unspecified loggers, the log level of the child logger is used otherwise
+    log4j.rootLogger=INFO, stdout, kafkaAppender
+    
+    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stdout.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    log4j.appender.kafkaAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.kafkaAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.kafkaAppender.File=${kafka.logs.dir}/server.log
+    log4j.appender.kafkaAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.kafkaAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    log4j.appender.stateChangeAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.stateChangeAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.stateChangeAppender.File=${kafka.logs.dir}/state-change.log
+    log4j.appender.stateChangeAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stateChangeAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    log4j.appender.requestAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.requestAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.requestAppender.File=${kafka.logs.dir}/kafka-request.log
+    log4j.appender.requestAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.requestAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    log4j.appender.cleanerAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.cleanerAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.cleanerAppender.File=${kafka.logs.dir}/log-cleaner.log
+    log4j.appender.cleanerAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.cleanerAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    log4j.appender.controllerAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.controllerAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.controllerAppender.File=${kafka.logs.dir}/controller.log
+    log4j.appender.controllerAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.controllerAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    log4j.appender.authorizerAppender=org.apache.log4j.DailyRollingFileAppender
+    log4j.appender.authorizerAppender.DatePattern='.'yyyy-MM-dd-HH
+    log4j.appender.authorizerAppender.File=${kafka.logs.dir}/kafka-authorizer.log
+    log4j.appender.authorizerAppender.layout=org.apache.log4j.PatternLayout
+    log4j.appender.authorizerAppender.layout.ConversionPattern=[%d] %p %m (%c)%n
+    
+    # Change the two lines below to adjust ZK client logging
+    log4j.logger.org.I0Itec.zkclient.ZkClient=INFO
+    log4j.logger.org.apache.zookeeper=INFO
+    
+    # Change the two lines below to adjust the general broker logging level (output to server.log and stdout)
+    log4j.logger.kafka=INFO
+    log4j.logger.org.apache.kafka=INFO
+    
+    # Change to DEBUG or TRACE to enable request logging
+    log4j.logger.kafka.request.logger=WARN, requestAppender
+    log4j.additivity.kafka.request.logger=false
+    
+    # Uncomment the lines below and change log4j.logger.kafka.network.RequestChannel$ to TRACE for additional output
+    # related to the handling of requests
+    #log4j.logger.kafka.network.Processor=TRACE, requestAppender
+    #log4j.logger.kafka.server.KafkaApis=TRACE, requestAppender
+    #log4j.additivity.kafka.server.KafkaApis=false
+    log4j.logger.kafka.network.RequestChannel$=WARN, requestAppender
+    log4j.additivity.kafka.network.RequestChannel$=false
+    
+    log4j.logger.kafka.controller=TRACE, controllerAppender
+    log4j.additivity.kafka.controller=false
+    
+    log4j.logger.kafka.log.LogCleaner=INFO, cleanerAppender
+    log4j.additivity.kafka.log.LogCleaner=false
+    
+    log4j.logger.state.change.logger=TRACE, stateChangeAppender
+    log4j.additivity.state.change.logger=false
+    
+    # Change to DEBUG to enable audit log for the authorizer
+    log4j.logger.kafka.authorizer.logger=WARN, authorizerAppender
+    log4j.additivity.kafka.authorizer.logger=false
+#------------------------------------------------------------------------------
+# Zookeeper:
+#------------------------------------------------------------------------------
+
+zookeeper:
+  Address: "kafka-test-01:2181,kafka-test-02:2181,kafka-test-03:2181"
+
+JMXExporter:
+  Port: 5556
+  RemotePort: 5555

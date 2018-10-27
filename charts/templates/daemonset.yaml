@@ -1,0 +1,117 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: {{ .Release.Name | quote }}
+  labels:
+    app: {{ include "kafka.name" . | quote }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name | quote }}
+spec:
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: {{ include "kafka.name" . | quote }}
+        release: {{ .Release.Name | quote }}
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: {{ .Values.JMXExporter.Port | quote }}
+        prometheus.io/scrape: "true"
+        checksum/values: {{ .Values | quote | sha256sum }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/kafka-configmap.yaml") . | sha256sum }}
+    spec:
+      nodeSelector:
+        xiaohongshu.com/app: {{ .Release.Name }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      imagePullSecrets:
+      - name: xhs-docker-registry
+      volumes:
+      {{- range $index, $value := .Values.DataDirectory }}
+      - name: kafka{{ $index }}
+        hostPath:
+          path: "{{ $value }}"
+      {{- end }}
+      - name: config
+        configMap: 
+          name: kafka-config
+          items:
+          - key: kafka-server
+            path: server.properties
+          - key: kafka-log
+            path: log4j.properties
+      - name: logdir
+        hostPath:
+          path: "{{ .Values.Env.LOG_DIR }}"
+      containers:
+      - name: {{ .Release.Name }}-exporter
+        image: "{{ .Values.Image }}:{{ .Values.ImageTag }}"
+        imagePullPolicy: "{{ .Values.ImagePullPolicy }}"
+        livenessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -ec
+              - /usr/bin/jps | /bin/grep -q jmx_exporter.jar
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -ec
+              - /usr/bin/jps | /bin/grep -q jmx_exporter.jar
+          initialDelaySeconds: 30
+        command: ["sh", "-c"]
+        args:
+        - /usr/bin/java -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.port={{ .Values.JMXExporter.RemotePort }} -jar /root/jmx_exporter/jmx_exporter.jar {{ .Values.JMXExporter.Port }} /root/jmx_exporter/config.yaml
+      - name: {{ .Release.Name }}-broker
+        image: "{{ .Values.Image }}:{{ .Values.ImageTag }}"
+        imagePullPolicy: "{{ .Values.ImagePullPolicy }}"
+        env: 
+        {{- range $key, $value := .Values.Env }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        livenessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -ec
+              - /usr/bin/jps | /bin/grep -q Kafka
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - |
+              - ./bin/health-check.sh
+              - {{ .Values.zookeeper.Address }}/data/{{ .Release.Name }}
+              - ${HOSTNAME:0-2}
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+        command: ["sh", "-c"]
+        args:
+        - export KAFKA_JMX_OPTS="$KAFKA_JMX_OPTS -Djava.rmi.server.hostname=$HOSTNAME"; ./bin/kafka-server-start.sh config/server.properties --override zookeeper.connect={{ .Values.zookeeper.Address }}/data/{{ .Release.Name }} --override broker.id=${HOSTNAME:0-2}
+        volumeMounts:
+        {{- range $index, $value := .Values.DataDirectory }}
+        - name: kafka{{ $index }}
+          mountPath: "{{ $value }}"
+        {{- end }}
+        - name: logdir
+          mountPath: "{{ .Values.Env.LOG_DIR }}"
+        - name: config
+          mountPath: "{{ .Values.Server.Location }}"
+          readOnly: true
+          subPath: server.properties
+        - name: config
+          mountPath: "{{ .Values.Log4J.Location }}"
+          subPath: log4j.properties
+

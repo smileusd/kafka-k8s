@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  "kafka-config"
+  labels:
+    app: {{ include "kafka.name" . | quote }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: {{ .Release.Name | quote }}
+data:
+  kafka-server: |
+{{ .Values.Server.Properties | indent 4 }}
+    log.dirs={{ range $index, $value := .Values.DataDirectory }}{{ if eq $index 0 }}{{ $value }}{{ else }},{{ $value }}{{ end }}{{ end }}
+  kafka-log: |
+{{ .Values.Log4J.Properties | indent 4 }}
