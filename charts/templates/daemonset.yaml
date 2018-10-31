@@ -20,7 +20,6 @@ spec:
         prometheus.io/path: /metrics
         prometheus.io/port: {{ .Values.JMXExporter.Port | quote }}
         prometheus.io/scrape: "true"
-        checksum/values: {{ .Values | quote | sha256sum }}
         checksum/configmap: {{ include (print $.Template.BasePath "/kafka-configmap.yaml") . | sha256sum }}
     spec:
       nodeSelector:
