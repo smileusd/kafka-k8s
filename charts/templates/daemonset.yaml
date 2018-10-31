@@ -23,7 +23,7 @@ spec:
         checksum/configmap: {{ include (print $.Template.BasePath "/kafka-configmap.yaml") . | sha256sum }}
     spec:
       nodeSelector:
-        xiaohongshu.com/app: {{ .Release.Name }}
+        xiaohongshu.com/app: {{ .Values.App }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       imagePullSecrets:
